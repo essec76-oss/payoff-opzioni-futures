@@ -1,0 +1,28 @@
+Ticker,Nome,Categoria,Unit_Move,Tick_Size,Exchange,Borsa,Quote_Factor,PL_Multiplier
+ZM,Soybean Meal,Agricoli,100,0.10,ECBOT,CME Group,1,100
+ZW,Wheat,Agricoli,5000,0.25,ECBOT,CME Group,0.01,50
+ZC,Corn,Agricoli,5000,0.25,ECBOT,CME Group,0.01,50
+ZL,Soybean Oil,Agricoli,60000,0.25,ECBOT,CME Group,0.01,600
+ZS,Soybean,Agricoli,5000,0.25,ECBOT,CME Group,0.01,50
+KE,Wheat Kansas,Agricoli,5000,0.25,ECBOT,CME Group,0.01,50
+LE,Live Cattle,Carni,40000,0.025,GLOBEX,CME Group,0.01,400
+GF,Feeder Cattle,Carni,40000,0.025,GLOBEX,CME Group,0.01,400
+HE,Lean Hogs,Carni,40000,0.025,GLOBEX,CME Group,0.01,400
+RB,Unleaded Gas,Energetici,42000,0.0001,NYMEX,CME Group,1,42000
+NG,Natural Gas,Energetici,10000,0.001,NYMEX,CME Group,1,10000
+HO,Heating Oil,Energetici,42000,0.0001,NYMEX,CME Group,1,42000
+CL,Crude Oil,Energetici,1000,0.01,NYMEX,CME Group,1,1000
+SI,Silver,Metalli,5000,0.005,NYMEX,CME Group,1,5000
+GC,Gold,Metalli,100,0.10,NYMEX,CME Group,1,100
+PA,Palladium,Metalli,100,0.10,NYMEX,CME Group,1,100
+PL,Platinum,Metalli,50,0.10,NYMEX,CME Group,1,50
+HG,Copper,Metalli,25000,0.0005,NYMEX,CME Group,1,25000
+CC,Cocoa,Tropicali,10,1.00,NYBOT,ICE,1,10
+KC,Coffee,Tropicali,37500,0.05,NYBOT,ICE,0.01,375
+CT,Cotton,Tropicali,50000,0.01,NYBOT,ICE,0.01,500
+OJ,Orange Juice,Tropicali,15000,0.05,NYBOT,ICE,0.01,150
+SB,Sugar No 11,Tropicali,112000,0.01,NYBOT,ICE,0.01,1120
+MES,Micro E-mini S&P 500,Indici,5,0.25,CME,CME Group,1,5
+ES,E-mini S&P 500,Indici,50,0.25,CME,CME Group,1,50
+MGC,Micro Gold,Metalli,10,0.10,COMEX,CME Group,1,10
+MCL,Micro WTI Crude,Energetici,100,0.01,NYMEX,CME Group,1,100
