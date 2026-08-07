@@ -8,8 +8,8 @@ st.title("Payoff Opzioni e Futures")
 st.caption("Calcolo del payoff a scadenza con tabella modificabile")
 
 DEFAULT_LEGS = pd.DataFrame([
-    {"Attiva": True, "Strumento": "Opzione", "Lato": "Short", "Tipo": "Put", "Quantita": 1, "Strike": 600.0, "Premio/Ingresso": 3.9396, "IV %": 26.5, "Multiplier": 50.0},
-    {"Attiva": True, "Strumento": "Opzione", "Lato": "Short", "Tipo": "Call", "Quantita": 1, "Strike": 1200.0, "Premio/Ingresso": 2.6898, "IV %": 48.1, "Multiplier": 50.0},
+    {"Escludi": False, "Strumento": "Opzione", "Lato": "Short", "Tipo": "Put", "Quantita": 1, "Strike": 600.0, "Premio/Ingresso": 3.9396, "IV %": 26.5, "Multiplier": 50.0},
+    {"Escludi": False, "Strumento": "Opzione", "Lato": "Short", "Tipo": "Call", "Quantita": 1, "Strike": 1200.0, "Premio/Ingresso": 2.6898, "IV %": 48.1, "Multiplier": 50.0},
 ])
 
 if "legs" not in st.session_state:
@@ -29,13 +29,13 @@ with st.sidebar:
         st.rerun()
 
 st.subheader("Gambe")
-st.caption("Disattiva una riga togliendo la spunta: resta nella tabella ma non viene inclusa in payoff, metriche e scenari.")
+st.caption("Spunta Escludi per togliere una gamba da grafico, payoff, metriche e scenari senza cancellare la riga.")
 legs = st.data_editor(
     st.session_state.legs,
     num_rows="dynamic",
     use_container_width=True,
     column_config={
-        "Attiva": st.column_config.CheckboxColumn("Attiva", default=True, help="Includi/escludi la gamba dai calcoli"),
+        "Escludi": st.column_config.CheckboxColumn("Escludi", default=False, help="Esclude la gamba da tutti i calcoli"),
         "Strumento": st.column_config.SelectboxColumn(options=["Opzione", "Future"], required=True),
         "Lato": st.column_config.SelectboxColumn(options=["Long", "Short"], required=True),
         "Tipo": st.column_config.SelectboxColumn(options=["Call", "Put", "Future"], required=True),
@@ -53,14 +53,14 @@ if price_max <= price_min:
     st.error("Il range massimo deve essere superiore al range minimo.")
     st.stop()
 
-required = ["Attiva", "Strumento", "Lato", "Tipo", "Quantita", "Strike", "Premio/Ingresso", "Multiplier"]
+required = ["Escludi", "Strumento", "Lato", "Tipo", "Quantita", "Strike", "Premio/Ingresso", "Multiplier"]
 if legs.empty or legs[required].isnull().any().any():
     st.warning("Completa tutti i dati obbligatori della tabella.")
     st.stop()
 
-active_legs = legs[legs["Attiva"]].copy()
+active_legs = legs[~legs["Escludi"]].copy()
 if active_legs.empty:
-    st.warning("Non ci sono gambe attive. Spunta almeno una riga per calcolare il payoff.")
+    st.warning("Tutte le gambe sono escluse. Togli la spunta Escludi da almeno una riga.")
     st.stop()
 
 def pnl_leg(prices, row):
@@ -116,7 +116,7 @@ with chart_col:
 
 with metrics_col:
     st.subheader("Metriche")
-    st.metric("Gambe attive", f"{len(active_legs)} / {len(legs)}")
+    st.metric("Gambe incluse", f"{len(active_legs)} / {len(legs)}")
     st.metric("Future corrente", f"{future_price:.4f}")
     st.metric("ATM IV", f"{atm_iv:.1f}%")
     st.metric("P/L max nel range", f"{total.max():,.2f}")
@@ -134,4 +134,4 @@ scenarios["P/L totale"] = scenario_total - commissions
 st.subheader("Scenari")
 st.dataframe(scenarios.style.format({"Prezzo a scadenza": "{:.4f}", "P/L totale": "{:.2f}"}), use_container_width=True)
 st.download_button("Scarica le gambe in CSV", legs.to_csv(index=False).encode("utf-8"), "gambe_strategia.csv", "text/csv")
-st.info("Questa versione calcola il payoff a scadenza. Il checkbox Attiva permette di spegnere temporaneamente qualunque gamba senza cancellarla.")
+st.info("Questa versione calcola il payoff a scadenza. Escludi disattiva temporaneamente una gamba senza cancellarla.")
