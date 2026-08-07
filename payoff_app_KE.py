@@ -20,8 +20,7 @@ DEFAULT_LEGS = pd.DataFrame([
     {"Escludi": False, "Strumento": "Opzione", "Lato": "Short", "Tipo": "Call", "Quantita": 1, "Strike": 1200.0, "Scadenza opzione": DEFAULT_EXPIRY, "Premio/Ingresso": 2.6898, "IV %": 48.1},
 ])
 if "legs" not in st.session_state:
-    st.session_state.legs = DEFAULT_LEGS.copy()
-
+   
 labels = (catalog["Ticker"] + " - " + catalog["Nome"]).tolist()
 with st.sidebar:
     st.header("Parametri strategia")
