@@ -23,14 +23,17 @@ with st.sidebar:
     name = st.text_input("Nome strategia", "KE Dec 2026 - Short Strangle")
     underlying = st.text_input("Future sottostante", "KE Dec 2026")
     future_price = st.number_input("Prezzo future corrente", value=721.75, step=0.25, format="%.4f")
-    mode = st.radio("Modalita grafico", ["Payoff a scadenza", "P/L teorico At Now"])
+    st.subheader("Curve da mostrare")
+    show_expiry = st.checkbox("Mostra payoff a scadenza", value=True)
+    show_now = st.checkbox("Mostra P/L teorico At Now", value=True)
+    show_components = st.checkbox("Mostra payoff singole gambe", value=False)
     st.divider()
     st.subheader("Valutazione Black-76")
     valuation_date = st.date_input("Data di valutazione", value=date(2026, 8, 7))
     option_expiry = st.date_input("Scadenza opzioni", value=date(2026, 11, 20))
     atm_iv = st.number_input("ATM IV globale (%)", value=30.7, step=0.1, min_value=0.01)
     risk_free = st.number_input("Tasso risk-free (%)", value=4.0, step=0.1, min_value=0.0)
-    st.caption("At Now usa la sola ATM IV globale per tutte le opzioni. L'IV per riga resta informativa.")
+    st.caption("At Now usa la sola ATM IV globale per tutte le opzioni.")
     st.divider()
     commissions = st.number_input("Commissioni totali", value=0.0, step=0.01)
     price_min = st.number_input("Range minimo", value=450.0, step=1.0)
@@ -46,7 +49,7 @@ legs = st.data_editor(
     num_rows="dynamic",
     use_container_width=True,
     column_config={
-        "Escludi": st.column_config.CheckboxColumn("Escludi", default=False, help="Esclude la gamba da tutti i calcoli"),
+        "Escludi": st.column_config.CheckboxColumn("Escludi", default=False),
         "Strumento": st.column_config.SelectboxColumn(options=["Opzione", "Future"], required=True),
         "Lato": st.column_config.SelectboxColumn(options=["Long", "Short"], required=True),
         "Tipo": st.column_config.SelectboxColumn(options=["Call", "Put", "Future"], required=True),
@@ -60,22 +63,23 @@ legs = st.data_editor(
 )
 st.session_state.legs = legs
 
+required = ["Escludi", "Strumento", "Lato", "Tipo", "Quantita", "Strike", "Premio/Ingresso", "Multiplier"]
 if price_max <= price_min:
     st.error("Il range massimo deve essere superiore al range minimo.")
     st.stop()
-
-required = ["Escludi", "Strumento", "Lato", "Tipo", "Quantita", "Strike", "Premio/Ingresso", "Multiplier"]
 if legs.empty or legs[required].isnull().any().any():
     st.warning("Completa tutti i dati obbligatori della tabella.")
+    st.stop()
+if option_expiry < valuation_date:
+    st.error("La scadenza deve essere uguale o successiva alla data di valutazione.")
+    st.stop()
+if not show_expiry and not show_now:
+    st.warning("Seleziona almeno una curva da mostrare.")
     st.stop()
 
 active_legs = legs[~legs["Escludi"]].copy()
 if active_legs.empty:
     st.warning("Tutte le gambe sono escluse. Togli la spunta Escludi da almeno una riga.")
-    st.stop()
-
-if option_expiry < valuation_date:
-    st.error("La scadenza deve essere uguale o successiva alla data di valutazione.")
     st.stop()
 
 dte = (option_expiry - valuation_date).days
@@ -102,9 +106,7 @@ def black76(prices, strike, time_years, sigma, rate, option_type):
 
 def pnl_expiry(prices, row):
     sign = 1 if row["Lato"] == "Long" else -1
-    q = sign * float(row["Quantita"])
-    mult = float(row["Multiplier"])
-    entry = float(row["Premio/Ingresso"])
+    q, mult, entry = sign * float(row["Quantita"]), float(row["Multiplier"]), float(row["Premio/Ingresso"])
     if row["Strumento"] == "Future":
         return q * (prices - entry) * mult
     intrinsic = np.maximum(prices - float(row["Strike"]), 0) if row["Tipo"] == "Call" else np.maximum(float(row["Strike"]) - prices, 0)
@@ -113,9 +115,7 @@ def pnl_expiry(prices, row):
 
 def pnl_at_now(prices, row):
     sign = 1 if row["Lato"] == "Long" else -1
-    q = sign * float(row["Quantita"])
-    mult = float(row["Multiplier"])
-    entry = float(row["Premio/Ingresso"])
+    q, mult, entry = sign * float(row["Quantita"]), float(row["Multiplier"]), float(row["Premio/Ingresso"])
     if row["Strumento"] == "Future":
         return q * (prices - entry) * mult
     theoretical = black76(prices, float(row["Strike"]), t, atm_iv / 100.0, risk_free / 100.0, row["Tipo"])
@@ -131,35 +131,31 @@ def breakevens(x, y):
             result.append(x[i] + (x[i + 1] - x[i]) * (-y[i]) / (y[i + 1] - y[i]))
     return sorted(set(round(v, 4) for v in result))
 
-pnl_function = pnl_expiry if mode == "Payoff a scadenza" else pnl_at_now
 prices = np.linspace(price_min, price_max, 2000)
-total = np.zeros_like(prices)
-for _, row in active_legs.iterrows():
-    total += pnl_function(prices, row)
-total -= commissions
-bes = breakevens(prices, total)
-current_total = sum(pnl_function(np.array([future_price]), row)[0] for _, row in active_legs.iterrows()) - commissions
+expiry_total = sum((pnl_expiry(prices, row) for _, row in active_legs.iterrows()), np.zeros_like(prices)) - commissions
+now_total = sum((pnl_at_now(prices, row) for _, row in active_legs.iterrows()), np.zeros_like(prices)) - commissions
+expiry_be = breakevens(prices, expiry_total)
+now_be = breakevens(prices, now_total)
+expiry_current = sum(pnl_expiry(np.array([future_price]), row)[0] for _, row in active_legs.iterrows()) - commissions
+now_current = sum(pnl_at_now(np.array([future_price]), row)[0] for _, row in active_legs.iterrows()) - commissions
 
 chart_col, metrics_col = st.columns([3, 1])
 with chart_col:
     fig = go.Figure()
-    for _, row in active_legs.iterrows():
-        fig.add_trace(go.Scatter(
-            x=prices, y=pnl_function(prices, row), mode="lines", opacity=0.35,
-            line={"dash": "dot"}, name=f"{row['Lato']} {row['Tipo']} {row['Strike']}"
-        ))
-    fig.add_trace(go.Scatter(x=prices, y=total, mode="lines", line={"width": 4, "color": "#00a878"}, name="P/L totale"))
+    if show_components:
+        for _, row in active_legs.iterrows():
+            fig.add_trace(go.Scatter(x=prices, y=pnl_expiry(prices, row), mode="lines", opacity=0.30, line={"dash": "dot"}, name=f"Scad. {row['Lato']} {row['Tipo']} {row['Strike']}"))
+    if show_expiry:
+        fig.add_trace(go.Scatter(x=prices, y=expiry_total, mode="lines", line={"width": 4, "color": "#00a878"}, name="Payoff a scadenza"))
+        for be in expiry_be:
+            fig.add_vline(x=be, line_dash="dot", line_color="#d55e00", annotation_text=f"BE scad. {be:.4f}")
+    if show_now:
+        fig.add_trace(go.Scatter(x=prices, y=now_total, mode="lines", line={"width": 2, "dash": "dash", "color": "#3b82f6"}, name="P/L teorico At Now"))
+        for be in now_be:
+            fig.add_vline(x=be, line_dash="dash", line_color="#3b82f6", annotation_text=f"BE now {be:.4f}")
     fig.add_hline(y=0, line_color="gray")
     fig.add_vline(x=future_price, line_dash="dash", line_color="#e69f00", annotation_text=f"Future {future_price:.2f}")
-    for be in bes:
-        fig.add_vline(x=be, line_dash="dot", line_color="#d55e00", annotation_text=f"BE {be:.4f}")
-    fig.update_layout(
-        title=f"{name} - {mode}",
-        xaxis_title=f"Prezzo {underlying}",
-        yaxis_title="P/L (in base al multiplier)",
-        hovermode="x unified",
-        margin={"l": 10, "r": 10, "t": 50, "b": 10},
-    )
+    fig.update_layout(title=f"{name} - curve P/L", xaxis_title=f"Prezzo {underlying}", yaxis_title="P/L (in base al multiplier)", hovermode="x unified", margin={"l": 10, "r": 10, "t": 50, "b": 10})
     st.plotly_chart(fig, use_container_width=True)
 
 with metrics_col:
@@ -168,20 +164,19 @@ with metrics_col:
     st.metric("Future corrente", f"{future_price:.4f}")
     st.metric("DTE", dte)
     st.metric("ATM IV globale", f"{atm_iv:.1f}%")
-    st.metric("P/L al future corrente", f"{current_total:,.2f}")
-    st.metric("P/L max nel range", f"{total.max():,.2f}")
-    st.metric("P/L min nel range", f"{total.min():,.2f}")
-    st.write("**Breakeven del grafico**")
-    st.write(", ".join(f"{x:.4f}" for x in bes) if bes else "Nessuno nel range")
+    if show_expiry:
+        st.metric("P/L scadenza al prezzo attuale", f"{expiry_current:,.2f}")
+    if show_now:
+        st.metric("P/L At Now al prezzo attuale", f"{now_current:,.2f}")
 
-scenario_levels = sorted(set([price_min, future_price, price_max] + active_legs.loc[active_legs["Strumento"] == "Opzione", "Strike"].astype(float).tolist() + bes))
+scenario_levels = sorted(set([price_min, future_price, price_max] + active_legs.loc[active_legs["Strumento"] == "Opzione", "Strike"].astype(float).tolist() + expiry_be + now_be))
 scenarios = pd.DataFrame({"Prezzo": scenario_levels})
-scenario_total = np.zeros(len(scenarios))
-for _, row in active_legs.iterrows():
-    scenario_total += pnl_function(scenarios["Prezzo"].to_numpy(), row)
-scenarios["P/L totale"] = scenario_total - commissions
+if show_expiry:
+    scenarios["P/L a scadenza"] = [sum(pnl_expiry(np.array([p]), row)[0] for _, row in active_legs.iterrows()) - commissions for p in scenario_levels]
+if show_now:
+    scenarios["P/L At Now"] = [sum(pnl_at_now(np.array([p]), row)[0] for _, row in active_legs.iterrows()) - commissions for p in scenario_levels]
 
 st.subheader("Scenari")
-st.dataframe(scenarios.style.format({"Prezzo": "{:.4f}", "P/L totale": "{:.2f}"}), use_container_width=True)
+st.dataframe(scenarios.style.format({col: "{:.2f}" for col in scenarios.columns}), use_container_width=True)
 st.download_button("Scarica le gambe in CSV", legs.to_csv(index=False).encode("utf-8"), "gambe_strategia.csv", "text/csv")
-st.info("At Now e una valutazione teorica Black-76: tutte le opzioni usano ATM IV globale, tasso e DTE impostati nella barra laterale.")
+st.info("Linea verde continua: payoff a scadenza. Linea blu tratteggiata: P/L teorico At Now con Black-76 e ATM IV globale.")
