@@ -66,14 +66,19 @@ with t1:
     if update:st.session_state.legs=edited[COLS];st.rerun()
     if st.button('Elimina righe selezionate'):
         st.session_state.legs=base[~base.Del].assign(Del=False).reset_index(drop=True);st.rerun()
-    if not active.empty:
+    if active.empty:
+        st.warning('Nessuna opzione attiva da rappresentare.')
+    else:
         g=active.apply(lambda r:calc(r,simulation),axis=1)[['Delta','Gamma','Vega','THETA']].sum()
         for c,n,v in zip(st.columns(4),g.index,g.values):c.metric(n,f'{v:,.3f}')
-        x=np.linspace(pmin,pmax,2000);y_today,y_simulation=total(x,today),total(x,simulation);fig=go.Figure()
-        if st.session_state.show_simulation:fig.add_trace(go.Scatter(x=x,y=y_simulation,name='P/L data simulazione',line={'width':4,'color':'#00a878'}))
-        if st.session_state.show_today:fig.add_trace(go.Scatter(x=x,y=y_today,name='P/L oggi',line={'dash':'dash','color':'#3b82f6'}))
+        x=np.linspace(pmin,pmax,2000)
+        y_now=total(x,today)
+        y_expiry=sum((pnl(x,r,pd.to_datetime(r.Scadenza).date()) for _,r in active.iterrows()),np.zeros_like(x,dtype=float))+cash
+        fig=go.Figure()
+        if st.session_state.show_simulation:fig.add_trace(go.Scatter(x=x,y=y_expiry,name='P/L a scadenza',line={'width':4,'color':'#00a878'}))
+        if st.session_state.show_today:fig.add_trace(go.Scatter(x=x,y=y_now,name='P/L at now',line={'dash':'dash','color':'#3b82f6'}))
         fig.add_hline(y=0,line_color='gray');fig.add_vline(x=spot,line_dash='dash');fig.update_layout(title=f'{asset} — {selected}',hovermode='x unified',xaxis_title=f'Prezzo {ticker}',yaxis_title='P/L');st.plotly_chart(fig,use_container_width=True)
-        q=st.columns([1.3,1.3,5]);q[0].checkbox('P/L data simulazione',key='show_simulation');q[1].checkbox('P/L oggi',key='show_today')
+        q=st.columns([1.3,1.3,5]);q[0].checkbox('P/L a scadenza',key='show_simulation');q[1].checkbox('P/L at now',key='show_today')
 with t2:st.info('Comparazione 1 predisposta.')
 with t3:st.info('Comparazione 2 predisposta.')
 out=st.session_state.legs.drop(columns=['Oscura','Del']).copy();out.Scadenza=out.Scadenza.apply(lambda v:pd.to_datetime(v).date().isoformat() if pd.notna(v) else None);safe=re.sub(r'[^A-Za-z0-9_-]+','_',project_name).strip('_') or 'strategia_opzioni';data={'opzioni':out.to_dict('records'),'parametri':{'project_name':project_name,'asset_class':asset,'product':selected,'spot':spot,'atmiv':atmiv,'simulation':simulation.isoformat(),'rf':rf,'cash':cash,'pmin':pmin,'pmax':pmax,'show_simulation':st.session_state.show_simulation,'show_today':st.session_state.show_today}};slot.download_button('Salva progetto',json.dumps(data,ensure_ascii=False,indent=2).encode(),f'{safe}_{date.today().isoformat()}.json','application/json')
