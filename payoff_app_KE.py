@@ -47,7 +47,7 @@ with st.expander('Salva / Carica progetto'):
         z=json.load(up);df=pd.DataFrame(z['opzioni']).rename(columns={'Acquisto/Vendita':'Buy/Sell','Numero opzioni':'N° opz'});df['Scadenza']=pd.to_datetime(df.Scadenza).dt.date
         if 'Buy/Sell' in df:df['Buy/Sell']=df['Buy/Sell'].replace({'Acquisto':'Buy','Vendita':'Sell'})
         for c in COLS:
-            if c not in df:df[c]=False if c in ['Escludi temporaneamente','Del'] else None
+            if c not in df:df[c]=False if c in ['Oscura','Del'] else None
         st.session_state.legs=df[COLS]
         params=z.get('parametri',{}).copy()
         if 'analysis' in params and 'simulation' not in params: params['simulation']=params['analysis']
