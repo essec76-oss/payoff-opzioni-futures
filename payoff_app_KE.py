@@ -11,7 +11,7 @@ st.title('Payoff Opzioni')
 try: catalog = pd.read_csv('sottostanti.csv')
 except FileNotFoundError: st.error('Manca il file sottostanti.csv.'); st.stop()
 
-COLS=['Escludi temporaneamente','Del','Buy/Sell','Call/Put','N° opz','Strike','Vol opz (%)','Premio','Scadenza']
+COLS=['Oscura','Del','Buy/Sell','Call/Put','N° opz','Strike','Vol opz (%)','Premio','Scadenza']
 EXP=date(2026,11,20)
 DEFAULT=pd.DataFrame([[False,False,'Sell','Put',1,600.,26.5,3.9396,EXP],[False,False,'Sell','Call',1,1200.,48.1,2.6898,EXP]],columns=COLS)
 st.session_state.setdefault('legs',DEFAULT.copy())
